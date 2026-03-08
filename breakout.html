@@ -119,7 +119,7 @@
   /* ── ランキングパネル ── */
   #ranking {
     margin-top: 20px;
-    width: 480px;
+    width: 640px;
     background: #120a06;
     border: 1px solid #ff8c4233;
     border-radius: 8px;
@@ -171,7 +171,7 @@
 </div>
 
 <div id="game-wrap">
-  <canvas id="c" width="480" height="520"></canvas>
+  <canvas id="c" width="640" height="600"></canvas>
 
   <!-- 名前入力モーダル -->
   <div id="name-modal">
@@ -201,8 +201,8 @@
 // ══════════════════════════════════════════════════════
 //  Supabase 設定 — URLとANON KEYを実際の値に置き換えてください
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://yulepyoxulkjdvtnvrse.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bGVweW94dWxramR2dG52cnNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MDIzNDUsImV4cCI6MjA4ODQ3ODM0NX0.csayXhG1l7IOtBinNh1ymQeywAZKuyQaMIG4HAR9gnQ';
 
 const db = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -313,41 +313,66 @@ const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
 // ─── 定数 ───────────────────────────────────────────
-const PADDLE_H = 12, PADDLE_W = 90;
+const PADDLE_H = 12, PADDLE_W = 110;
 const BALL_R = 8;
-const ROWS = 5, COLS = 10;
-const BRICK_W = 44, BRICK_H = 16;
+const ROWS = 8, COLS = 20;
+const BRICK_W = 26, BRICK_H = 26;
 const BRICK_PAD = 4;
-const BRICK_TOP = 60;
-const COLORS = ['#ff3a1a','#ff6a1a','#ff9b2a','#ffcc44','#ff5533','#ff8833'];
+const BRICK_TOP = 55;
+// HP別カラー: HP1(明)→HP4(暗)
+const HP_COLORS = ['#ffcc44', '#ff8c2a', '#ff4422', '#991100'];
 
 // ─── 状態 ───────────────────────────────────────────
 let score, lives, level, state;
 // state: 'idle'|'playing'|'dead'|'clear'|'nameinput'|'gameover'
-let paddle, ball, bricks, particles;
+let paddle, balls, bricks, particles;
 let mouseX = W / 2;
 let keys = {};
+
+function createBall(x, y, vx, vy) {
+  return { x, y, vx, vy, r: BALL_R };
+}
 
 function init(newLevel = 1) {
   level = newLevel;
   if (newLevel === 1) { score = 0; lives = 3; }
   paddle = { x: W / 2 - PADDLE_W / 2, y: H - 40, w: PADDLE_W, h: PADDLE_H };
-  const speed = 2.5 + (level - 1) * 0.4;
-  ball = { x: W / 2, y: H - 60, vx: speed * (Math.random() > 0.5 ? 1 : -1), vy: -speed, r: BALL_R };
+  const speed = 1.8 + (level - 1) * 0.2;
+  balls = [createBall(W / 2, H - 60, speed * (Math.random() > 0.5 ? 1 : -1), -speed)];
   bricks = [];
-  const rows = Math.min(ROWS + Math.floor((level - 1) / 2), 8);
+  const rows = Math.min(ROWS + Math.floor((level - 1) / 2), 14);
+  const offsetX = Math.floor((W - (COLS * (BRICK_W + BRICK_PAD) - BRICK_PAD)) / 2);
+  // レベルに応じた多段ブロックの出現率 (HP1〜4)
+  const p4 = Math.min(0.04 + (level - 1) * 0.02, 0.18);
+  const p3 = Math.min(0.12 + (level - 1) * 0.02, 0.25);
+  const p2 = Math.min(0.25 + (level - 1) * 0.03, 0.38);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < COLS; c++) {
-      const hp = r < 2 ? 1 : (r < 4 ? 2 : 3);
-      bricks.push({
-        x: c * (BRICK_W + BRICK_PAD) + 6,
-        y: r * (BRICK_H + BRICK_PAD) + BRICK_TOP,
-        w: BRICK_W, h: BRICK_H,
-        hp, maxHp: hp,
-        color: COLORS[r % COLORS.length],
-        alive: true
-      });
+      // 虹色ブロック (1%)
+      if (Math.random() < 0.01) {
+        bricks.push({
+          x: c * (BRICK_W + BRICK_PAD) + offsetX,
+          y: r * (BRICK_H + BRICK_PAD) + BRICK_TOP,
+          w: BRICK_W, h: BRICK_H,
+          hp: 1, maxHp: 1, color: '#fff', type: 'rainbow', alive: true
+        });
+      } else {
+        const rand = Math.random();
+        const hp = rand < p4 ? 4 : rand < p4 + p3 ? 3 : rand < p4 + p3 + p2 ? 2 : 1;
+        bricks.push({
+          x: c * (BRICK_W + BRICK_PAD) + offsetX,
+          y: r * (BRICK_H + BRICK_PAD) + BRICK_TOP,
+          w: BRICK_W, h: BRICK_H,
+          hp, maxHp: hp, color: HP_COLORS[hp - 1], alive: true
+        });
+      }
     }
+  }
+  // 虹ブロックが1つもない場合、ランダムな位置に強制配置
+  if (!bricks.some(b => b.type === 'rainbow')) {
+    const idx = Math.floor(Math.random() * bricks.length);
+    const b = bricks[idx];
+    b.hp = 1; b.maxHp = 1; b.color = '#fff'; b.type = 'rainbow';
   }
   particles = [];
   state = 'idle';
@@ -413,22 +438,26 @@ function drawPaddle() {
   ctx.shadowBlur = 0;
 }
 
-function drawBall() {
-  const g = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.r);
-  g.addColorStop(0, '#ffffff');
-  g.addColorStop(1, '#ff9b2a');
-  ctx.fillStyle = g;
-  ctx.shadowColor = '#ff7a2a';
-  ctx.shadowBlur = 20;
-  ctx.beginPath();
-  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+function drawBalls() {
+  for (const ball of balls) {
+    const g = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.r);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(1, '#ff9b2a');
+    ctx.fillStyle = g;
+    ctx.shadowColor = '#ff7a2a';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
 }
 
 function drawBricks() {
+  const t = Date.now() / 400;
   for (const b of bricks) {
     if (!b.alive) continue;
+    if (b.type === 'rainbow') { drawRainbowBrick(b, t); continue; }
     const alpha = 0.4 + 0.6 * (b.hp / b.maxHp);
     ctx.globalAlpha = alpha;
     const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
@@ -450,6 +479,27 @@ function drawBricks() {
     }
   }
   ctx.globalAlpha = 1;
+}
+
+function drawRainbowBrick(b, t) {
+  const hue = (t * 360) % 360;
+  const g = ctx.createLinearGradient(b.x, b.y, b.x + b.w, b.y + b.h);
+  g.addColorStop(0,    `hsl(${hue % 360}, 100%, 65%)`);
+  g.addColorStop(0.33, `hsl(${(hue + 120) % 360}, 100%, 65%)`);
+  g.addColorStop(0.66, `hsl(${(hue + 240) % 360}, 100%, 65%)`);
+  g.addColorStop(1,    `hsl(${hue % 360}, 100%, 65%)`);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = g;
+  ctx.shadowColor = `hsl(${hue % 360}, 100%, 70%)`;
+  ctx.shadowBlur = 14;
+  roundRect(b.x, b.y, b.w, b.h, 4);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('★', b.x + b.w / 2, b.y + b.h / 2);
 }
 
 function roundRect(x, y, w, h, r) {
@@ -490,71 +540,107 @@ function movePaddle() {
   paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
 }
 
-function moveBall() {
-  ball.x += ball.vx;
-  ball.y += ball.vy;
+function moveAllBalls() {
+  for (let bi = balls.length - 1; bi >= 0; bi--) {
+    const ball = balls[bi];
+    ball.x += ball.vx;
+    ball.y += ball.vy;
 
-  // 壁
-  if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
-  if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
-  if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
+    // 壁
+    if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+    if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+    if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
 
-  // パドル衝突
-  if (
-    ball.vy > 0 &&
-    ball.x > paddle.x && ball.x < paddle.x + paddle.w &&
-    ball.y + ball.r > paddle.y && ball.y + ball.r < paddle.y + paddle.h + 8
-  ) {
-    ball.y = paddle.y - ball.r;
-    const rel = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-    const angle = rel * 60 * Math.PI / 180;
-    const spd = Math.hypot(ball.vx, ball.vy);
-    ball.vx = spd * Math.sin(angle);
-    ball.vy = -Math.abs(spd * Math.cos(angle));
-    spawnParticles(ball.x, ball.y, '#ff9b2a', 6);
-  }
-
-  // 落下
-  if (ball.y - ball.r > H) {
-    lives--;
-    updateHUD();
-    if (lives <= 0) {
-      state = 'nameinput';
-      showNameInput();
-      return;
+    // パドル衝突
+    if (
+      ball.vy > 0 &&
+      ball.x > paddle.x && ball.x < paddle.x + paddle.w &&
+      ball.y + ball.r > paddle.y && ball.y + ball.r < paddle.y + paddle.h + 8
+    ) {
+      ball.y = paddle.y - ball.r;
+      const rel = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+      const angle = rel * 60 * Math.PI / 180;
+      const spd = Math.hypot(ball.vx, ball.vy);
+      ball.vx = spd * Math.sin(angle);
+      ball.vy = -Math.abs(spd * Math.cos(angle));
+      spawnParticles(ball.x, ball.y, '#ff9b2a', 6);
     }
-    ball.x = W / 2; ball.y = H - 60;
-    const spd = 2.5 + (level - 1) * 0.4;
-    ball.vx = spd * (Math.random() > 0.5 ? 1 : -1);
-    ball.vy = -spd;
-    state = 'dead';
-  }
 
-  // ブロック衝突
-  for (const b of bricks) {
-    if (!b.alive) continue;
-    const dx = Math.max(b.x - ball.x, 0, ball.x - (b.x + b.w));
-    const dy = Math.max(b.y - ball.y, 0, ball.y - (b.y + b.h));
-    if (dx * dx + dy * dy < ball.r * ball.r) {
-      b.hp--;
-      spawnParticles(ball.x, ball.y, b.color, 8);
-      if (b.hp <= 0) {
-        b.alive = false;
-        score += b.maxHp * 10 * level;
-        spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.color, 20);
+    // 落下
+    if (ball.y - ball.r > H) {
+      balls.splice(bi, 1);
+      if (balls.length === 0) {
+        lives--;
         updateHUD();
+        if (lives <= 0) {
+          state = 'nameinput';
+          showNameInput();
+          return;
+        }
+        const spd = 1.8 + (level - 1) * 0.2;
+        balls = [createBall(W / 2, H - 60, spd * (Math.random() > 0.5 ? 1 : -1), -spd)];
+        state = 'dead';
       }
-      const overlapX = (ball.x < b.x || ball.x > b.x + b.w);
-      const overlapY = (ball.y < b.y || ball.y > b.y + b.h);
-      if (overlapX && !overlapY) ball.vx *= -1;
-      else if (!overlapX && overlapY) ball.vy *= -1;
-      else { ball.vx *= -1; ball.vy *= -1; }
-      break;
+      continue;
+    }
+
+    // ブロック衝突
+    for (const b of bricks) {
+      if (!b.alive) continue;
+      const dx = Math.max(b.x - ball.x, 0, ball.x - (b.x + b.w));
+      const dy = Math.max(b.y - ball.y, 0, ball.y - (b.y + b.h));
+      if (dx * dx + dy * dy < ball.r * ball.r) {
+        b.hp--;
+        spawnParticles(ball.x, ball.y, b.color, 8);
+        if (b.hp <= 0) {
+          b.alive = false;
+          score += b.maxHp * 10 * level;
+          spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.color, 20);
+          // 虹色ブロック: 周囲に1ダメージ
+          if (b.type === 'rainbow') damageNeighbors(b);
+          // HP3: +1球 / HP4: +2球（真下へ）
+          const bSpd = Math.hypot(ball.vx, ball.vy);
+          if (b.maxHp === 3) {
+            balls.push(createBall(b.x + b.w / 2, b.y + b.h / 2, (Math.random() - 0.5) * bSpd * 0.3, bSpd));
+          } else if (b.maxHp === 4) {
+            balls.push(createBall(b.x + b.w / 2, b.y + b.h / 2, -bSpd * 0.3, bSpd));
+            balls.push(createBall(b.x + b.w / 2, b.y + b.h / 2,  bSpd * 0.3, bSpd));
+          }
+          updateHUD();
+        }
+        const overlapX = (ball.x < b.x || ball.x > b.x + b.w);
+        const overlapY = (ball.y < b.y || ball.y > b.y + b.h);
+        if (overlapX && !overlapY) ball.vx *= -1;
+        else if (!overlapX && overlapY) ball.vy *= -1;
+        else { ball.vx *= -1; ball.vy *= -1; }
+        break;
+      }
     }
   }
 
   if (bricks.every(b => !b.alive)) {
     state = 'clear';
+  }
+}
+
+function damageNeighbors(b) {
+  const cellSize = BRICK_W + BRICK_PAD;
+  const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+  for (const nb of bricks) {
+    if (!nb.alive || nb === b) continue;
+    const distX = Math.abs((nb.x + nb.w / 2) - bcx);
+    const distY = Math.abs((nb.y + nb.h / 2) - bcy);
+    if (distX <= cellSize * 1.1 && distY <= cellSize * 1.1) {
+      nb.hp--;
+      spawnParticles(nb.x + nb.w / 2, nb.y + nb.h / 2, '#ffffff', 10);
+      if (nb.hp <= 0) {
+        nb.alive = false;
+        score += nb.maxHp * 10 * level;
+        spawnParticles(nb.x + nb.w / 2, nb.y + nb.h / 2, nb.color, 15);
+        if (nb.type === 'rainbow') damageNeighbors(nb);
+        updateHUD();
+      }
+    }
   }
 }
 
@@ -575,23 +661,23 @@ function loop() {
 
   if (state === 'playing') {
     movePaddle();
-    moveBall();
+    moveAllBalls();
     updateParticles();
-    drawBall();
+    drawBalls();
   } else if (state === 'idle') {
     movePaddle();
     updateParticles();
-    drawBall();
+    drawBalls();
     drawOverlay('READY?', 'スペースキー / クリックでスタート');
   } else if (state === 'dead') {
     movePaddle();
     updateParticles();
-    drawBall();
+    drawBalls();
     drawOverlay(`残りライフ: ${'❤'.repeat(lives)}`, 'スペースキー / クリックで続ける');
   } else if (state === 'clear') {
     updateParticles();
-    drawBall();
-    spawnParticles(Math.random() * W, Math.random() * H, COLORS[Math.floor(Math.random() * COLORS.length)], 3);
+    drawBalls();
+    spawnParticles(Math.random() * W, Math.random() * H, HP_COLORS[Math.floor(Math.random() * HP_COLORS.length)], 3);
     drawOverlay(`LEVEL ${level} CLEAR! 🎉`, 'スペースキー / クリックで次のレベルへ');
   } else if (state === 'nameinput') {
     updateParticles();
