@@ -336,6 +336,18 @@ const BRICK_PAD = 4;
 const BRICK_TOP = 55;
 // HP別カラー: HP1(明)→HP4(暗)
 const HP_COLORS = ['#ffcc44', '#ff8c2a', '#ff4422', '#991100'];
+const MAX_PARTICLES = 200; // パーティクル上限
+
+// ─── 背景グリッドをオフスクリーンCanvasに一度だけ描画（毎フレーム再描画コストを排除）───
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = 640; bgCanvas.height = 600;
+const bgCtx = bgCanvas.getContext('2d');
+bgCtx.fillStyle = '#0d0804';
+bgCtx.fillRect(0, 0, 640, 600);
+bgCtx.strokeStyle = '#ffffff07';
+bgCtx.lineWidth = 1;
+for (let x = 0; x < 640; x += 40) { bgCtx.beginPath(); bgCtx.moveTo(x,0); bgCtx.lineTo(x,600); bgCtx.stroke(); }
+for (let y = 0; y < 600; y += 40) { bgCtx.beginPath(); bgCtx.moveTo(0,y); bgCtx.lineTo(640,y); bgCtx.stroke(); }
 
 // ─── 状態 ───────────────────────────────────────────
 let score, lives, level, state;
@@ -365,7 +377,7 @@ function init(newLevel = 1) {
   level = newLevel;
   if (newLevel === 1) { score = 0; lives = 3; }
   paddle = { x: W / 2 - PADDLE_W / 2, y: H - 40, w: PADDLE_W, h: PADDLE_H };
-  const speed = 2.0 + (level - 1) * 0.2;
+  const speed = 2.5 + (level - 1) * 0.2;
   balls = [createBall(W / 2, H - 60, speed * (Math.random() > 0.5 ? 1 : -1), -speed)];
   bricks = [];
   const rows = Math.min(ROWS + Math.floor((level - 1) / 2), 14);
@@ -409,6 +421,9 @@ function init(newLevel = 1) {
 
 // ─── パーティクル ────────────────────────────────────
 function spawnParticles(x, y, color, n = 12) {
+  const available = MAX_PARTICLES - particles.length;
+  if (available <= 0) return;
+  n = Math.min(n, available);
   for (let i = 0; i < n; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 1 + Math.random() * 4;
@@ -416,8 +431,8 @@ function spawnParticles(x, y, color, n = 12) {
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: 1, decay: 0.03 + Math.random() * 0.04,
-      size: 2 + Math.random() * 4,
+      life: 1, decay: 0.04 + Math.random() * 0.04,
+      size: 2 + Math.random() * 3,
       color
     });
   }
@@ -446,12 +461,7 @@ function drawParticles() {
 
 // ─── 描画 ───────────────────────────────────────────
 function drawBG() {
-  ctx.fillStyle = '#0d0804';
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#ffffff06';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.drawImage(bgCanvas, 0, 0); // キャッシュ済み背景を転送（毎フレームの描画コストほぼ0）
 }
 
 function drawPaddle() {
@@ -467,42 +477,35 @@ function drawPaddle() {
 }
 
 function drawBalls() {
+  // shadowBlurは全ボール共通で1回だけ設定（ボールが複数でもコスト一定）
+  ctx.fillStyle = '#ffdd99';
+  ctx.shadowColor = '#ff8c42';
+  ctx.shadowBlur = 14;
   for (const ball of balls) {
-    const g = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.r);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(1, '#ff9b2a');
-    ctx.fillStyle = g;
-    ctx.shadowColor = '#ff7a2a';
-    ctx.shadowBlur = 20;
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
   }
+  ctx.shadowBlur = 0;
 }
 
 function drawBricks() {
   const t = Date.now() / 400;
+  // テキスト設定は共通で先に1回だけ指定
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   for (const b of bricks) {
     if (!b.alive) continue;
     if (b.type === 'rainbow') { drawRainbowBrick(b, t); continue; }
-    const alpha = 0.4 + 0.6 * (b.hp / b.maxHp);
-    ctx.globalAlpha = alpha;
-    const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
-    g.addColorStop(0, b.color);
-    g.addColorStop(1, b.color + '88');
-    ctx.fillStyle = g;
-    ctx.shadowColor = b.color;
-    ctx.shadowBlur = 8;
+    // グラデーション・shadowBlurを廃止してフラットカラーに（描画コスト大幅削減）
+    ctx.globalAlpha = 0.45 + 0.55 * (b.hp / b.maxHp);
+    ctx.fillStyle = b.color;
     roundRect(b.x, b.y, b.w, b.h, 4);
     ctx.fill();
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
     if (b.maxHp > 1) {
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       ctx.fillText(b.hp, b.x + b.w / 2, b.y + b.h / 2);
     }
   }
@@ -510,19 +513,11 @@ function drawBricks() {
 }
 
 function drawRainbowBrick(b, t) {
+  // グラデーション・shadowBlurを廃止してシンプルな単色サイクルに
   const hue = (t * 360) % 360;
-  const g = ctx.createLinearGradient(b.x, b.y, b.x + b.w, b.y + b.h);
-  g.addColorStop(0,    `hsl(${hue % 360}, 100%, 65%)`);
-  g.addColorStop(0.33, `hsl(${(hue + 120) % 360}, 100%, 65%)`);
-  g.addColorStop(0.66, `hsl(${(hue + 240) % 360}, 100%, 65%)`);
-  g.addColorStop(1,    `hsl(${hue % 360}, 100%, 65%)`);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = g;
-  ctx.shadowColor = `hsl(${hue % 360}, 100%, 70%)`;
-  ctx.shadowBlur = 14;
+  ctx.fillStyle = `hsl(${hue}, 100%, 62%)`;
   roundRect(b.x, b.y, b.w, b.h, 4);
   ctx.fill();
-  ctx.shadowBlur = 0;
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
@@ -605,7 +600,7 @@ function moveAllBalls() {
           showNameInput();
           return;
         }
-        const spd = 2.0 + (level - 1) * 0.2;
+        const spd = 2.5 + (level - 1) * 0.2;
         balls = [createBall(W / 2, H - 60, spd * (Math.random() > 0.5 ? 1 : -1), -spd)];
         state = 'dead';
       }
@@ -656,12 +651,12 @@ function damageNeighbors(b) {
   const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
   const thresh = 2; // 同行・同列の判定誤差許容値
 
-  // ビームエフェクト: 虹色パーティクルを横列・縦列に放出
+  // ビームエフェクト: ステップを広げてパーティクル数を削減
   const hue = (Date.now() / 4) % 360;
-  for (let x = 0; x <= W; x += 18) {
+  for (let x = 0; x <= W; x += 40) {
     spawnParticles(x, bcy, `hsl(${(hue + x * 0.5) % 360}, 100%, 70%)`, 1);
   }
-  for (let y = BRICK_TOP; y < H - 60; y += 18) {
+  for (let y = BRICK_TOP; y < H - 60; y += 40) {
     spawnParticles(bcx, y, `hsl(${(hue + y * 0.5) % 360}, 100%, 70%)`, 1);
   }
 
