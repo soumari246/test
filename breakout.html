@@ -7,7 +7,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #0a0a1a;
+    background: #0d0804;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -22,15 +22,15 @@
     font-size: 2rem;
     margin-bottom: 12px;
     letter-spacing: 4px;
-    color: #00d4ff;
-    text-shadow: 0 0 20px #00d4ff88;
+    color: #ff8c42;
+    text-shadow: 0 0 20px #ff8c4288;
   }
   #info {
     display: flex;
     gap: 40px;
     margin-bottom: 12px;
     font-size: 1rem;
-    color: #aaa;
+    color: #aa8866;
   }
   #info span { color: #fff; font-weight: bold; }
 
@@ -39,9 +39,9 @@
     position: relative;
   }
   canvas {
-    border: 2px solid #00d4ff44;
+    border: 2px solid #ff8c4244;
     border-radius: 8px;
-    box-shadow: 0 0 40px #00d4ff22;
+    box-shadow: 0 0 40px #ff8c4222;
     display: block;
   }
 
@@ -50,7 +50,7 @@
     display: none;
     position: absolute;
     inset: 0;
-    background: rgba(10, 10, 26, 0.92);
+    background: rgba(13, 8, 4, 0.92);
     border-radius: 8px;
     flex-direction: column;
     align-items: center;
@@ -64,20 +64,20 @@
     font-weight: bold;
     color: #fff;
     letter-spacing: 4px;
-    text-shadow: 0 0 20px #00d4ff;
+    text-shadow: 0 0 20px #ff8c42;
   }
   #name-modal .modal-score {
     font-size: 1.2rem;
-    color: #ffdd00;
+    color: #ffcc44;
   }
   #name-modal .modal-score span { font-weight: bold; font-size: 1.5rem; }
   #name-modal p {
     font-size: 0.9rem;
-    color: #aaa;
+    color: #aa8866;
   }
   #name-input {
-    background: #1a1a2e;
-    border: 2px solid #00d4ff66;
+    background: #1e1008;
+    border: 2px solid #ff8c4266;
     border-radius: 6px;
     color: #fff;
     font-size: 1.1rem;
@@ -87,8 +87,8 @@
     outline: none;
     transition: border-color 0.2s;
   }
-  #name-input:focus { border-color: #00d4ff; }
-  #name-input::placeholder { color: #555; }
+  #name-input:focus { border-color: #ff8c42; }
+  #name-input::placeholder { color: #554433; }
   .modal-buttons { display: flex; gap: 12px; }
   .modal-btn {
     padding: 8px 22px;
@@ -99,43 +99,43 @@
     transition: opacity 0.2s;
   }
   .modal-btn:hover { opacity: 0.85; }
-  #submit-btn { background: #00d4ff; color: #0a0a1a; font-weight: bold; }
-  #skip-btn   { background: #333; color: #aaa; }
+  #submit-btn { background: #ff7a2a; color: #fff; font-weight: bold; }
+  #skip-btn   { background: #332211; color: #aa8866; }
 
   /* ── メッセージ ── */
   #msg {
     margin-top: 16px;
     font-size: 1.1rem;
-    color: #ffdd00;
+    color: #ffcc44;
     height: 24px;
-    text-shadow: 0 0 10px #ffdd0088;
+    text-shadow: 0 0 10px #ffcc4488;
   }
   #controls {
     margin-top: 6px;
     font-size: 0.8rem;
-    color: #555;
+    color: #554433;
   }
 
   /* ── ランキングパネル ── */
   #ranking {
     margin-top: 20px;
     width: 480px;
-    background: #0f0f20;
-    border: 1px solid #00d4ff33;
+    background: #120a06;
+    border: 1px solid #ff8c4233;
     border-radius: 8px;
     padding: 14px 20px;
   }
   #ranking .rank-title {
     font-size: 1rem;
     letter-spacing: 4px;
-    color: #00d4ff;
+    color: #ff8c42;
     text-align: center;
     margin-bottom: 10px;
-    text-shadow: 0 0 10px #00d4ff88;
+    text-shadow: 0 0 10px #ff8c4288;
   }
   #rank-list {
     font-size: 0.9rem;
-    color: #aaa;
+    color: #aa8866;
   }
   .rank-row {
     display: flex;
@@ -149,17 +149,17 @@
     width: 28px;
     text-align: right;
     font-weight: bold;
-    color: #555;
+    color: #554433;
   }
   .rank-num.top1 { color: #ffd700; }
   .rank-num.top2 { color: #c0c0c0; }
   .rank-num.top3 { color: #cd7f32; }
   .rank-name { flex: 1; color: #fff; }
-  .rank-name.me { color: #ffdd00; }
-  .rank-score { font-weight: bold; color: #00d4ff; width: 70px; text-align: right; }
-  .rank-level { color: #555; font-size: 0.8rem; width: 50px; text-align: right; }
-  .rank-empty { text-align: center; color: #444; padding: 10px 0; }
-  .rank-error { text-align: center; color: #ff4466; padding: 10px 0; font-size: 0.85rem; }
+  .rank-name.me { color: #ffcc44; }
+  .rank-score { font-weight: bold; color: #ff8c42; width: 70px; text-align: right; }
+  .rank-level { color: #554433; font-size: 0.8rem; width: 50px; text-align: right; }
+  .rank-empty { text-align: center; color: #443322; padding: 10px 0; }
+  .rank-error { text-align: center; color: #ff4422; padding: 10px 0; font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -319,7 +319,7 @@ const ROWS = 5, COLS = 10;
 const BRICK_W = 44, BRICK_H = 16;
 const BRICK_PAD = 4;
 const BRICK_TOP = 60;
-const COLORS = ['#ff4466','#ff8844','#ffdd00','#44dd88','#44aaff','#aa66ff'];
+const COLORS = ['#ff3a1a','#ff6a1a','#ff9b2a','#ffcc44','#ff5533','#ff8833'];
 
 // ─── 状態 ───────────────────────────────────────────
 let score, lives, level, state;
@@ -393,9 +393,9 @@ function drawParticles() {
 
 // ─── 描画 ───────────────────────────────────────────
 function drawBG() {
-  ctx.fillStyle = '#0a0a1a';
+  ctx.fillStyle = '#0d0804';
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#ffffff08';
+  ctx.strokeStyle = '#ffffff06';
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
@@ -403,10 +403,10 @@ function drawBG() {
 
 function drawPaddle() {
   const g = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.h);
-  g.addColorStop(0, '#00d4ff');
-  g.addColorStop(1, '#0066aa');
+  g.addColorStop(0, '#ff9b2a');
+  g.addColorStop(1, '#cc4400');
   ctx.fillStyle = g;
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = '#ff7a2a';
   ctx.shadowBlur = 15;
   roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6);
   ctx.fill();
@@ -416,9 +416,9 @@ function drawPaddle() {
 function drawBall() {
   const g = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.r);
   g.addColorStop(0, '#ffffff');
-  g.addColorStop(1, '#00d4ff');
+  g.addColorStop(1, '#ff9b2a');
   ctx.fillStyle = g;
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = '#ff7a2a';
   ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
@@ -472,12 +472,12 @@ function drawOverlay(text, sub) {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 36px sans-serif';
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = '#ff7a2a';
   ctx.shadowBlur = 20;
   ctx.fillText(text, W / 2, H / 2 - 20);
   ctx.shadowBlur = 0;
   ctx.font = '18px sans-serif';
-  ctx.fillStyle = '#aaa';
+  ctx.fillStyle = '#aa8866';
   ctx.fillText(sub, W / 2, H / 2 + 20);
 }
 
@@ -511,7 +511,7 @@ function moveBall() {
     const spd = Math.hypot(ball.vx, ball.vy);
     ball.vx = spd * Math.sin(angle);
     ball.vy = -Math.abs(spd * Math.cos(angle));
-    spawnParticles(ball.x, ball.y, '#00d4ff', 6);
+    spawnParticles(ball.x, ball.y, '#ff9b2a', 6);
   }
 
   // 落下
