@@ -376,8 +376,8 @@ function init(newLevel = 1) {
   const p2 = Math.min(0.25 + (level - 1) * 0.03, 0.38);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < COLS; c++) {
-      // 虹色ブロック (1%)
-      if (Math.random() < 0.01) {
+      // 虹色ブロック (0.8%)
+      if (Math.random() < 0.008) {
         bricks.push({
           x: c * (BRICK_W + BRICK_PAD) + offsetX,
           y: r * (BRICK_H + BRICK_PAD) + BRICK_TOP,
@@ -652,20 +652,33 @@ function moveAllBalls() {
 }
 
 function damageNeighbors(b) {
-  const cellSize = BRICK_W + BRICK_PAD;
+  // 縦・横一列（十字）に2ダメージを与える
   const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+  const thresh = 2; // 同行・同列の判定誤差許容値
+
+  // ビームエフェクト: 虹色パーティクルを横列・縦列に放出
+  const hue = (Date.now() / 4) % 360;
+  for (let x = 0; x <= W; x += 18) {
+    spawnParticles(x, bcy, `hsl(${(hue + x * 0.5) % 360}, 100%, 70%)`, 1);
+  }
+  for (let y = BRICK_TOP; y < H - 60; y += 18) {
+    spawnParticles(bcx, y, `hsl(${(hue + y * 0.5) % 360}, 100%, 70%)`, 1);
+  }
+
   for (const nb of bricks) {
     if (!nb.alive || nb === b) continue;
-    const distX = Math.abs((nb.x + nb.w / 2) - bcx);
-    const distY = Math.abs((nb.y + nb.h / 2) - bcy);
-    if (distX <= cellSize * 1.1 && distY <= cellSize * 1.1) {
-      nb.hp--;
-      spawnParticles(nb.x + nb.w / 2, nb.y + nb.h / 2, '#ffffff', 10);
+    const ncx = nb.x + nb.w / 2;
+    const ncy = nb.y + nb.h / 2;
+    const sameRow = Math.abs(ncy - bcy) < thresh; // 同じ横列
+    const sameCol = Math.abs(ncx - bcx) < thresh; // 同じ縦列
+    if (sameRow || sameCol) {
+      nb.hp -= 2; // 2ダメージ
+      spawnParticles(ncx, ncy, '#ffffff', 12);
       if (nb.hp <= 0) {
         nb.alive = false;
         score += nb.maxHp * 10 * level;
-        spawnParticles(nb.x + nb.w / 2, nb.y + nb.h / 2, nb.color, 15);
-        if (nb.type === 'rainbow') damageNeighbors(nb);
+        spawnParticles(ncx, ncy, nb.color, 20);
+        if (nb.type === 'rainbow') damageNeighbors(nb); // 連鎖
         updateHUD();
       }
     }
