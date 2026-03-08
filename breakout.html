@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブロック崩し</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #fff;
+    user-select: none;
+    padding: 20px 0;
+  }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 12px;
+    letter-spacing: 4px;
+    color: #00d4ff;
+    text-shadow: 0 0 20px #00d4ff88;
+  }
+  #info {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 12px;
+    font-size: 1rem;
+    color: #aaa;
+  }
+  #info span { color: #fff; font-weight: bold; }
+
+  /* ── ゲームエリア ── */
+  #game-wrap {
+    position: relative;
+  }
+  canvas {
+    border: 2px solid #00d4ff44;
+    border-radius: 8px;
+    box-shadow: 0 0 40px #00d4ff22;
+    display: block;
+  }
+
+  /* ── 名前入力モーダル ── */
+  #name-modal {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 10, 26, 0.92);
+    border-radius: 8px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 10;
+  }
+  #name-modal.show { display: flex; }
+  #name-modal .modal-title {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #fff;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px #00d4ff;
+  }
+  #name-modal .modal-score {
+    font-size: 1.2rem;
+    color: #ffdd00;
+  }
+  #name-modal .modal-score span { font-weight: bold; font-size: 1.5rem; }
+  #name-modal p {
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+  #name-input {
+    background: #1a1a2e;
+    border: 2px solid #00d4ff66;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 8px 14px;
+    width: 240px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #name-input:focus { border-color: #00d4ff; }
+  #name-input::placeholder { color: #555; }
+  .modal-buttons { display: flex; gap: 12px; }
+  .modal-btn {
+    padding: 8px 22px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .modal-btn:hover { opacity: 0.85; }
+  #submit-btn { background: #00d4ff; color: #0a0a1a; font-weight: bold; }
+  #skip-btn   { background: #333; color: #aaa; }
+
+  /* ── メッセージ ── */
+  #msg {
+    margin-top: 16px;
+    font-size: 1.1rem;
+    color: #ffdd00;
+    height: 24px;
+    text-shadow: 0 0 10px #ffdd0088;
+  }
+  #controls {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #555;
+  }
+
+  /* ── ランキングパネル ── */
+  #ranking {
+    margin-top: 20px;
+    width: 480px;
+    background: #0f0f20;
+    border: 1px solid #00d4ff33;
+    border-radius: 8px;
+    padding: 14px 20px;
+  }
+  #ranking .rank-title {
+    font-size: 1rem;
+    letter-spacing: 4px;
+    color: #00d4ff;
+    text-align: center;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px #00d4ff88;
+  }
+  #rank-list {
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+  .rank-row {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #ffffff0a;
+    gap: 10px;
+  }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-num {
+    width: 28px;
+    text-align: right;
+    font-weight: bold;
+    color: #555;
+  }
+  .rank-num.top1 { color: #ffd700; }
+  .rank-num.top2 { color: #c0c0c0; }
+  .rank-num.top3 { color: #cd7f32; }
+  .rank-name { flex: 1; color: #fff; }
+  .rank-name.me { color: #ffdd00; }
+  .rank-score { font-weight: bold; color: #00d4ff; width: 70px; text-align: right; }
+  .rank-level { color: #555; font-size: 0.8rem; width: 50px; text-align: right; }
+  .rank-empty { text-align: center; color: #444; padding: 10px 0; }
+  .rank-error { text-align: center; color: #ff4466; padding: 10px 0; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<h1>BLOCK BREAKER</h1>
+<div id="info">
+  スコア: <span id="scoreVal">0</span>
+  &nbsp;&nbsp;ライフ: <span id="livesVal">❤❤❤</span>
+  &nbsp;&nbsp;レベル: <span id="levelVal">1</span>
+</div>
+
+<div id="game-wrap">
+  <canvas id="c" width="480" height="520"></canvas>
+
+  <!-- 名前入力モーダル -->
+  <div id="name-modal">
+    <div class="modal-title">GAME OVER</div>
+    <div class="modal-score">スコア: <span id="final-score">0</span></div>
+    <p>名前を入力してランキングに登録</p>
+    <input id="name-input" type="text" maxlength="12" placeholder="プレイヤー名 (最大12文字)">
+    <div class="modal-buttons">
+      <button class="modal-btn" id="submit-btn">登録する</button>
+      <button class="modal-btn" id="skip-btn">スキップ</button>
+    </div>
+  </div>
+</div>
+
+<div id="msg">スペースキー / クリックでスタート</div>
+<div id="controls">← → キー または マウスでパドルを操作</div>
+
+<!-- ランキングパネル -->
+<div id="ranking">
+  <div class="rank-title">R A N K I N G</div>
+  <div id="rank-list"><div class="rank-empty">読み込み中...</div></div>
+</div>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+//  Supabase 設定 — URLとANON KEYを実際の値に置き換えてください
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+const db = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;  // 未設定時はオフラインモード
+
+// ══════════════════════════════════════════════════════
+//  ランキング取得
+// ══════════════════════════════════════════════════════
+async function fetchRanking() {
+  const list = document.getElementById('rank-list');
+  if (!db) {
+    list.innerHTML = '<div class="rank-empty">※ Supabase 未設定（オフラインモード）</div>';
+    return;
+  }
+  const { data, error } = await db
+    .from('scores')
+    .select('name, score, level')
+    .order('score', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    list.innerHTML = '<div class="rank-error">ランキングの取得に失敗しました</div>';
+    return;
+  }
+  if (!data || data.length === 0) {
+    list.innerHTML = '<div class="rank-empty">まだ記録がありません</div>';
+    return;
+  }
+  list.innerHTML = data.map((row, i) => {
+    const numClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+    const isMe = row.name === lastSubmittedName;
+    return `
+      <div class="rank-row">
+        <div class="rank-num ${numClass}">${medal}</div>
+        <div class="rank-name ${isMe ? 'me' : ''}">${escapeHtml(row.name)}${isMe ? ' ★' : ''}</div>
+        <div class="rank-score">${row.score.toLocaleString()}</div>
+        <div class="rank-level">Lv.${row.level}</div>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  スコア送信
+// ══════════════════════════════════════════════════════
+let lastSubmittedName = '';
+
+async function submitScore(name) {
+  if (!db) return;
+  lastSubmittedName = name;
+  const { error } = await db.from('scores').insert({ name, score, level });
+  if (error) console.error('スコア送信エラー:', error.message);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════════════════
+//  名前入力モーダル
+// ══════════════════════════════════════════════════════
+const nameModal  = document.getElementById('name-modal');
+const nameInput  = document.getElementById('name-input');
+const submitBtn  = document.getElementById('submit-btn');
+const skipBtn    = document.getElementById('skip-btn');
+const finalScore = document.getElementById('final-score');
+
+function showNameInput() {
+  finalScore.textContent = score.toLocaleString();
+  nameInput.value = '';
+  nameModal.classList.add('show');
+  nameInput.focus();
+}
+
+function hideNameInput() {
+  nameModal.classList.remove('show');
+}
+
+async function onSubmit() {
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中...';
+  await submitScore(name);
+  submitBtn.disabled = false;
+  submitBtn.textContent = '登録する';
+  hideNameInput();
+  state = 'gameover';
+  await fetchRanking();
+}
+
+async function onSkip() {
+  lastSubmittedName = '';
+  hideNameInput();
+  state = 'gameover';
+  await fetchRanking();
+}
+
+submitBtn.addEventListener('click', onSubmit);
+skipBtn.addEventListener('click', onSkip);
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') onSubmit(); });
+
+// ══════════════════════════════════════════════════════
+//  ゲーム本体
+// ══════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// ─── 定数 ───────────────────────────────────────────
+const PADDLE_H = 12, PADDLE_W = 90;
+const BALL_R = 8;
+const ROWS = 5, COLS = 10;
+const BRICK_W = 44, BRICK_H = 16;
+const BRICK_PAD = 4;
+const BRICK_TOP = 60;
+const COLORS = ['#ff4466','#ff8844','#ffdd00','#44dd88','#44aaff','#aa66ff'];
+
+// ─── 状態 ───────────────────────────────────────────
+let score, lives, level, state;
+// state: 'idle'|'playing'|'dead'|'clear'|'nameinput'|'gameover'
+let paddle, ball, bricks, particles;
+let mouseX = W / 2;
+let keys = {};
+
+function init(newLevel = 1) {
+  level = newLevel;
+  if (newLevel === 1) { score = 0; lives = 3; }
+  paddle = { x: W / 2 - PADDLE_W / 2, y: H - 40, w: PADDLE_W, h: PADDLE_H };
+  const speed = 2.5 + (level - 1) * 0.4;
+  ball = { x: W / 2, y: H - 60, vx: speed * (Math.random() > 0.5 ? 1 : -1), vy: -speed, r: BALL_R };
+  bricks = [];
+  const rows = Math.min(ROWS + Math.floor((level - 1) / 2), 8);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const hp = r < 2 ? 1 : (r < 4 ? 2 : 3);
+      bricks.push({
+        x: c * (BRICK_W + BRICK_PAD) + 6,
+        y: r * (BRICK_H + BRICK_PAD) + BRICK_TOP,
+        w: BRICK_W, h: BRICK_H,
+        hp, maxHp: hp,
+        color: COLORS[r % COLORS.length],
+        alive: true
+      });
+    }
+  }
+  particles = [];
+  state = 'idle';
+  updateHUD();
+}
+
+// ─── パーティクル ────────────────────────────────────
+function spawnParticles(x, y, color, n = 12) {
+  for (let i = 0; i < n; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.03 + Math.random() * 0.04,
+      size: 2 + Math.random() * 4,
+      color
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.1;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ─── 描画 ───────────────────────────────────────────
+function drawBG() {
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#ffffff08';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+}
+
+function drawPaddle() {
+  const g = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.h);
+  g.addColorStop(0, '#00d4ff');
+  g.addColorStop(1, '#0066aa');
+  ctx.fillStyle = g;
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = 15;
+  roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawBall() {
+  const g = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, ball.r);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(1, '#00d4ff');
+  ctx.fillStyle = g;
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawBricks() {
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    const alpha = 0.4 + 0.6 * (b.hp / b.maxHp);
+    ctx.globalAlpha = alpha;
+    const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+    g.addColorStop(0, b.color);
+    g.addColorStop(1, b.color + '88');
+    ctx.fillStyle = g;
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur = 8;
+    roundRect(b.x, b.y, b.w, b.h, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    if (b.maxHp > 1) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.hp, b.x + b.w / 2, b.y + b.h / 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawOverlay(text, sub) {
+  ctx.fillStyle = '#00000088';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = 20;
+  ctx.fillText(text, W / 2, H / 2 - 20);
+  ctx.shadowBlur = 0;
+  ctx.font = '18px sans-serif';
+  ctx.fillStyle = '#aaa';
+  ctx.fillText(sub, W / 2, H / 2 + 20);
+}
+
+// ─── 物理 ───────────────────────────────────────────
+function movePaddle() {
+  paddle.x = mouseX - paddle.w / 2;
+  const spd = 7;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) paddle.x -= spd;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) paddle.x += spd;
+  paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
+}
+
+function moveBall() {
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // 壁
+  if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+  if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+  if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
+
+  // パドル衝突
+  if (
+    ball.vy > 0 &&
+    ball.x > paddle.x && ball.x < paddle.x + paddle.w &&
+    ball.y + ball.r > paddle.y && ball.y + ball.r < paddle.y + paddle.h + 8
+  ) {
+    ball.y = paddle.y - ball.r;
+    const rel = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+    const angle = rel * 60 * Math.PI / 180;
+    const spd = Math.hypot(ball.vx, ball.vy);
+    ball.vx = spd * Math.sin(angle);
+    ball.vy = -Math.abs(spd * Math.cos(angle));
+    spawnParticles(ball.x, ball.y, '#00d4ff', 6);
+  }
+
+  // 落下
+  if (ball.y - ball.r > H) {
+    lives--;
+    updateHUD();
+    if (lives <= 0) {
+      state = 'nameinput';
+      showNameInput();
+      return;
+    }
+    ball.x = W / 2; ball.y = H - 60;
+    const spd = 2.5 + (level - 1) * 0.4;
+    ball.vx = spd * (Math.random() > 0.5 ? 1 : -1);
+    ball.vy = -spd;
+    state = 'dead';
+  }
+
+  // ブロック衝突
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    const dx = Math.max(b.x - ball.x, 0, ball.x - (b.x + b.w));
+    const dy = Math.max(b.y - ball.y, 0, ball.y - (b.y + b.h));
+    if (dx * dx + dy * dy < ball.r * ball.r) {
+      b.hp--;
+      spawnParticles(ball.x, ball.y, b.color, 8);
+      if (b.hp <= 0) {
+        b.alive = false;
+        score += b.maxHp * 10 * level;
+        spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.color, 20);
+        updateHUD();
+      }
+      const overlapX = (ball.x < b.x || ball.x > b.x + b.w);
+      const overlapY = (ball.y < b.y || ball.y > b.y + b.h);
+      if (overlapX && !overlapY) ball.vx *= -1;
+      else if (!overlapX && overlapY) ball.vy *= -1;
+      else { ball.vx *= -1; ball.vy *= -1; }
+      break;
+    }
+  }
+
+  if (bricks.every(b => !b.alive)) {
+    state = 'clear';
+  }
+}
+
+// ─── HUD ────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('scoreVal').textContent = score.toLocaleString();
+  document.getElementById('livesVal').textContent = '❤'.repeat(Math.max(0, lives));
+  document.getElementById('levelVal').textContent = level;
+  document.getElementById('msg').textContent = '';
+}
+
+// ─── メインループ ────────────────────────────────────
+function loop() {
+  drawBG();
+  drawBricks();
+  drawParticles();
+  drawPaddle();
+
+  if (state === 'playing') {
+    movePaddle();
+    moveBall();
+    updateParticles();
+    drawBall();
+  } else if (state === 'idle') {
+    movePaddle();
+    updateParticles();
+    drawBall();
+    drawOverlay('READY?', 'スペースキー / クリックでスタート');
+  } else if (state === 'dead') {
+    movePaddle();
+    updateParticles();
+    drawBall();
+    drawOverlay(`残りライフ: ${'❤'.repeat(lives)}`, 'スペースキー / クリックで続ける');
+  } else if (state === 'clear') {
+    updateParticles();
+    drawBall();
+    spawnParticles(Math.random() * W, Math.random() * H, COLORS[Math.floor(Math.random() * COLORS.length)], 3);
+    drawOverlay(`LEVEL ${level} CLEAR! 🎉`, 'スペースキー / クリックで次のレベルへ');
+  } else if (state === 'nameinput') {
+    updateParticles();
+    // モーダルが前面に出るのでCanvasは薄暗くするだけ
+    ctx.fillStyle = '#00000066';
+    ctx.fillRect(0, 0, W, H);
+  } else if (state === 'gameover') {
+    updateParticles();
+    drawOverlay('GAME OVER', 'スペースキー / クリックでリスタート');
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ─── 入力 ───────────────────────────────────────────
+function advance() {
+  if (state === 'nameinput') return; // モーダル中は無視
+  if (state === 'idle' || state === 'dead') { state = 'playing'; }
+  else if (state === 'clear') { init(level + 1); state = 'playing'; }
+  else if (state === 'gameover') { init(1); state = 'playing'; }
+}
+
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ') { e.preventDefault(); advance(); }
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+});
+
+canvas.addEventListener('click', () => advance());
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.touches[0].clientX - rect.left;
+}, { passive: false });
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.touches[0].clientX - rect.left;
+  advance();
+}, { passive: false });
+
+// ─── 起動 ───────────────────────────────────────────
+init(1);
+fetchRanking();
+loop();
+</script>
+</body>
+</html>
