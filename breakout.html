@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ブロック崩し</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,7 +16,8 @@
     font-family: 'Segoe UI', sans-serif;
     color: #fff;
     user-select: none;
-    padding: 20px 0;
+    padding: 20px 8px;
+    overflow-x: hidden;
   }
   h1 {
     font-size: 2rem;
@@ -43,6 +44,7 @@
     border-radius: 8px;
     box-shadow: 0 0 40px #ff8c4222;
     display: block;
+    touch-action: none; /* スクロール防止 */
   }
 
   /* ── 名前入力モーダル ── */
@@ -119,7 +121,8 @@
   /* ── ランキングパネル ── */
   #ranking {
     margin-top: 20px;
-    width: 640px;
+    width: 100%;
+    max-width: 640px;
     background: #120a06;
     border: 1px solid #ff8c4233;
     border-radius: 8px;
@@ -160,6 +163,18 @@
   .rank-level { color: #554433; font-size: 0.8rem; width: 50px; text-align: right; }
   .rank-empty { text-align: center; color: #443322; padding: 10px 0; }
   .rank-error { text-align: center; color: #ff4422; padding: 10px 0; font-size: 0.85rem; }
+
+  /* ── スマホ対応 ── */
+  @media (max-width: 660px) {
+    body { padding: 10px 8px; }
+    h1 { font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 8px; }
+    #info { gap: 14px; font-size: 0.82rem; margin-bottom: 8px; }
+    #msg { font-size: 0.9rem; margin-top: 10px; }
+    #controls { font-size: 0.72rem; }
+    #ranking { padding: 10px 12px; }
+    #name-input { width: 90%; }
+    .modal-title { font-size: 1.5rem; }
+  }
 </style>
 </head>
 <body>
@@ -186,8 +201,8 @@
   </div>
 </div>
 
-<div id="msg">スペースキー / クリックでスタート</div>
-<div id="controls">← → キー または マウスでパドルを操作</div>
+<div id="msg">タップ / スペースキーでスタート</div>
+<div id="controls">スワイプ / ← → キー / マウスでパドルを操作</div>
 
 <!-- ランキングパネル -->
 <div id="ranking">
@@ -328,6 +343,19 @@ let score, lives, level, state;
 let paddle, balls, bricks, particles;
 let mouseX = W / 2;
 let keys = {};
+let scale = 1; // 画面スケール係数
+
+// ─── レスポンシブ: Canvasをウィンドウ幅に合わせてスケール ───
+function resizeCanvas() {
+  const padding = 16; // 左右余白合計
+  const available = Math.min(window.innerWidth - padding, W);
+  scale = available / W;
+  canvas.style.width  = (W * scale) + 'px';
+  canvas.style.height = (H * scale) + 'px';
+  // ランキングパネルをCanvas幅に合わせる
+  document.getElementById('ranking').style.maxWidth = (W * scale) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
 
 function createBall(x, y, vx, vy) {
   return { x, y, vx, vy, r: BALL_R };
@@ -668,17 +696,17 @@ function loop() {
     movePaddle();
     updateParticles();
     drawBalls();
-    drawOverlay('READY?', 'スペースキー / クリックでスタート');
+    drawOverlay('READY?', 'タップ / スペースキーでスタート');
   } else if (state === 'dead') {
     movePaddle();
     updateParticles();
     drawBalls();
-    drawOverlay(`残りライフ: ${'❤'.repeat(lives)}`, 'スペースキー / クリックで続ける');
+    drawOverlay(`残りライフ: ${'❤'.repeat(lives)}`, 'タップ / スペースキーで続ける');
   } else if (state === 'clear') {
     updateParticles();
     drawBalls();
     spawnParticles(Math.random() * W, Math.random() * H, HP_COLORS[Math.floor(Math.random() * HP_COLORS.length)], 3);
-    drawOverlay(`LEVEL ${level} CLEAR! 🎉`, 'スペースキー / クリックで次のレベルへ');
+    drawOverlay(`LEVEL ${level} CLEAR! 🎉`, 'タップ / スペースキーで次のレベルへ');
   } else if (state === 'nameinput') {
     updateParticles();
     // モーダルが前面に出るのでCanvasは薄暗くするだけ
@@ -686,7 +714,7 @@ function loop() {
     ctx.fillRect(0, 0, W, H);
   } else if (state === 'gameover') {
     updateParticles();
-    drawOverlay('GAME OVER', 'スペースキー / クリックでリスタート');
+    drawOverlay('GAME OVER', 'タップ / スペースキーでリスタート');
   }
 
   requestAnimationFrame(loop);
@@ -708,7 +736,7 @@ document.addEventListener('keyup', e => { keys[e.key] = false; });
 
 canvas.addEventListener('mousemove', e => {
   const rect = canvas.getBoundingClientRect();
-  mouseX = e.clientX - rect.left;
+  mouseX = (e.clientX - rect.left) / scale; // scaleで割って内部座標に変換
 });
 
 canvas.addEventListener('click', () => advance());
@@ -716,17 +744,18 @@ canvas.addEventListener('click', () => advance());
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   const rect = canvas.getBoundingClientRect();
-  mouseX = e.touches[0].clientX - rect.left;
+  mouseX = (e.touches[0].clientX - rect.left) / scale;
 }, { passive: false });
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   const rect = canvas.getBoundingClientRect();
-  mouseX = e.touches[0].clientX - rect.left;
+  mouseX = (e.touches[0].clientX - rect.left) / scale;
   advance();
 }, { passive: false });
 
 // ─── 起動 ───────────────────────────────────────────
+resizeCanvas(); // 初回スケール適用
 init(1);
 fetchRanking();
 loop();
